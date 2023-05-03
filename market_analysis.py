@@ -35,8 +35,9 @@ def get_data_from_excel_SBI(uploaded_file):
     return df
 
 def get_data_from_excel_Kotak(uploaded_file):
-    df = pd.DataFrame({})
-    return df
+    #df = pd.DataFrame({})
+    print('Do Nothing')
+    return True
 
 def get_data_from_excel_ICICI(uploaded_file):
     wb = load_workbook(uploaded_file)
