@@ -179,7 +179,7 @@ if add_more_data:
         if nps_fund_name in nps_fund_names:
             uploaded_data = nps_fund_names[nps_fund_name](uploaded_file)
             if isinstance(nps_trust_scheme_cg_df, pd.DataFrame):
-                nps_trust_scheme_cg_df = uploaded_data.append(nps_trust_scheme_cg_df)
+                nps_trust_scheme_cg_df = uploaded_data.concat(nps_trust_scheme_cg_df)
             else:
                 nps_trust_scheme_cg_df = uploaded_data
             nps_trust_scheme_cg_df.to_csv('scheme_cg.csv',index = False)
