@@ -129,7 +129,7 @@ def get_data_from_excel_TATA(uploaded_file):
 
 @st.cache_data()
 def get_company_name_from_ISIN():
-    df = pd.read_csv("C:\\Users\\raksh\\Documents\\Python Workspace\\Streamlit_examples\\market_analysis\\file_dropbox\\NPS trust data\\ind_nifty500list.csv",
+    df = pd.read_csv("ind_nifty500list.csv",
                     usecols = ['ISIN Code','Company Name'])
     df.columns = df.columns.str.upper()
     df = df.applymap(lambda x: x.upper() if isinstance(x, str) else x)
