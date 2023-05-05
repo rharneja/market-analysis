@@ -34,10 +34,43 @@ def get_data_from_excel_SBI(uploaded_file,month,year):
 
     return df
 
-def get_data_from_excel_Kotak(uploaded_file):
-    #df = pd.DataFrame({})
-    print('Do Nothing')
-    return True
+def get_data_from_excel_Kotak(uploaded_file,month,year):
+    wb = load_workbook(uploaded_file)
+    sheet_name = wb.sheetnames[0]
+    ws = wb[sheet_name]
+
+    # Find the row number of the first cell that contains "Subtotal"
+    for row in ws.rows:
+        for cell in row:
+            if cell.value == "Money Market Instruments":
+                rows_till = cell.row
+                break # break out of inner loop
+        else:
+            continue # continue if the inner loop did not break
+        break # break out of outer loop
+
+    # Load the data from the Excel file into a DataFrame
+    df = pd.read_excel(uploaded_file, sheet_name=sheet_name, skiprows=11, nrows=rows_till - 13)
+    # Clean up the DataFrame
+    df = df.drop(df[(df['Name of the Instrument'] == 'Equity Instruments') | (df['Name of the Instrument'] == '       Shares')].index)
+    df.dropna(subset=['Name of the Instrument'],inplace = True)
+    df = df[df.filter(regex='^(?!Unnamed)').columns]
+    df = df.drop(['Name of the Instrument','Ratings'], axis=1)
+    df = df.rename(columns={'ISIN No.': 'ISIN CODE','Industry':'INDUSTRY','Market Value Rs.': 'MARKET VALUE'})
+    df.columns = df.columns.str.upper()
+    df = df.applymap(lambda x: x.upper() if type(x) == str else x)
+    
+
+    # Merge with lookup table to get company names
+    lookup_name_with_isin = get_company_name_from_ISIN()
+    df = pd.merge(df, lookup_name_with_isin, on='ISIN CODE', how='left')
+
+    # Add additional columns to the DataFrame
+    df['MONTH'] = month
+    df['YEAR'] = str(year)
+    df['FUND NAME'] = 'KOTAK'
+
+    return df
 
 def get_data_from_excel_ICICI(uploaded_file,month,year):
     wb = load_workbook(uploaded_file)
@@ -112,20 +145,152 @@ def get_data_from_excel_AB(uploaded_file,month,year):
 
     return df
 
-def get_data_from_excel_UTI(uploaded_file):
-    df = pd.DataFrame({})
+def get_data_from_excel_UTI(uploaded_file,month,year):
+    wb = load_workbook(uploaded_file)
+    sheet_name = wb.sheetnames[0]
+    ws = wb[sheet_name]
+
+    # Find the row number of the first cell that contains "Subtotal"
+    for row in ws.rows:
+        for cell in row:
+            if cell.value == "Debt Instruments -":
+                rows_till = cell.row
+                break # break out of inner loop
+        else:
+            continue # continue if the inner loop did not break
+        break # break out of outer loop
+
+    # Load the data from the Excel file into a DataFrame
+    df = pd.read_excel(uploaded_file, sheet_name=sheet_name, skiprows=4, nrows=rows_till - 6)
+    # Clean up the DataFrame
+    df = df.drop(df[(df['Name of the Instrument'] == 'Equity Instruments -') | (df['Name of the Instrument'] == 'Shares')].index)
+    df.dropna(subset=['Name of the Instrument'],inplace = True)
+    df = df[df.filter(regex='^(?!Unnamed)').columns]
+    df = df.drop(['Name of the Instrument','Rating','Industry Code'], axis=1)
+    df = df.rename(columns={'ISIN No.': 'ISIN CODE','Industry Name':'INDUSTRY','Mkt Value': 'MARKET VALUE'})
+    df.columns = df.columns.str.upper()
+    df = df.applymap(lambda x: x.upper() if type(x) == str else x)
+    
+
+    # Merge with lookup table to get company names
+    lookup_name_with_isin = get_company_name_from_ISIN()
+    df = pd.merge(df, lookup_name_with_isin, on='ISIN CODE', how='left')
+
+    # Add additional columns to the DataFrame
+    df['MONTH'] = month
+    df['YEAR'] = str(year)
+    df['FUND NAME'] = 'UTI'
+
     return df
 
-def get_data_from_excel_LIC(uploaded_file):
-    df = pd.DataFrame({})
+def get_data_from_excel_LIC(uploaded_file,month,year):
+    wb = load_workbook(uploaded_file)
+    sheet_name = wb.sheetnames[0]
+    ws = wb[sheet_name]
+
+    # Find the row number of the first cell that contains "Subtotal"
+    for row in ws.rows:
+        for cell in row:
+            if cell.value == "Total (A)":
+                rows_till = cell.row
+                break # break out of inner loop
+        else:
+            continue # continue if the inner loop did not break
+        break # break out of outer loop
+
+    # Load the data from the Excel file into a DataFrame
+    df = pd.read_excel(uploaded_file, sheet_name=sheet_name, skiprows=7, nrows=rows_till - 9)
+    # Clean up the DataFrame
+    df = df[df.filter(regex='^(?!Unnamed)').columns]
+    df = df.drop(['Security Name','Rating'], axis=1)
+    df = df.rename(columns={'ISIN Code': 'ISIN CODE','NAV%':'% OF PORTFOLIO','Units': 'QUANTITY'})
+    df.columns = df.columns.str.upper()
+    df = df.applymap(lambda x: x.upper() if type(x) == str else x)
+    
+
+    # Merge with lookup table to get company names
+    lookup_name_with_isin = get_company_name_from_ISIN()
+    df = pd.merge(df, lookup_name_with_isin, on='ISIN CODE', how='left')
+
+    # Add additional columns to the DataFrame
+    df['MONTH'] = month
+    df['YEAR'] = str(year)
+    df['FUND NAME'] = 'LIC'
+
     return df
 
-def get_data_from_excel_Max(uploaded_file):
-    df = pd.DataFrame({})
+def get_data_from_excel_MAX(uploaded_file,month,year):
+    wb = load_workbook(uploaded_file)
+    sheet_name = wb.sheetnames[0]
+    ws = wb[sheet_name]
+
+    # Find the row number of the first cell that contains "Subtotal"
+    for row in ws.rows:
+        for cell in row:
+            if cell.value == "Subtotal (A)":
+                rows_till = cell.row
+                break # break out of inner loop
+        else:
+            continue # continue if the inner loop did not break
+        break # break out of outer loop
+
+    # Load the data from the Excel file into a DataFrame
+    df = pd.read_excel(uploaded_file, sheet_name=sheet_name, skiprows=4, nrows=rows_till - 5)
+    # Clean up the DataFrame
+    df.dropna(subset=['ISIN No.'],inplace = True)
+    df = df[df.filter(regex='^(?!Unnamed)').columns]
+    df = df.drop(['Name of the Instrument'], axis=1)
+    df = df.rename(columns={'ISIN No.': 'ISIN CODE','Industry ':'Industry'})
+    df.columns = df.columns.str.upper()
+    df = df.applymap(lambda x: x.upper() if type(x) == str else x)
+    
+
+    # Merge with lookup table to get company names
+    lookup_name_with_isin = get_company_name_from_ISIN()
+    df = pd.merge(df, lookup_name_with_isin, on='ISIN CODE', how='left')
+
+    # Add additional columns to the DataFrame
+    df['MONTH'] = month
+    df['YEAR'] = str(year)
+    df['FUND NAME'] = 'MAX'
+
     return df
 
-def get_data_from_excel_TATA(uploaded_file):
-    df = pd.DataFrame({})
+def get_data_from_excel_TATA(uploaded_file,month,year):
+    wb = load_workbook(uploaded_file)
+    sheet_name = wb.sheetnames[0]
+    ws = wb[sheet_name]
+
+    # Find the row number of the first cell that contains "Subtotal"
+    for row in ws.rows:
+        for cell in row:
+            if cell.value == "Money Market Instruments":
+                rows_till = cell.row
+                break # break out of inner loop
+        else:
+            continue # continue if the inner loop did not break
+        break # break out of outer loop
+
+    # Load the data from the Excel file into a DataFrame
+    df = pd.read_excel(uploaded_file, sheet_name=sheet_name, skiprows=6, nrows=rows_till - 13)
+    # Clean up the DataFrame
+    df.dropna(subset=['Isin No.'],inplace = True)
+    df = df[df.filter(regex='^(?!Unnamed)').columns]
+    df = df.drop(['Name of Instruments'], axis=1)
+    df = df.rename(columns={'Isin No.': 'ISIN CODE','Mkt_Value': 'MARKET VALUE'})
+    df.columns = df.columns.str.upper()
+    df = df.applymap(lambda x: x.upper() if type(x) == str else x)
+    
+
+    # Merge with lookup table to get company names
+    lookup_name_with_isin = get_company_name_from_ISIN()
+    df = pd.merge(df, lookup_name_with_isin, on='ISIN CODE', how='left')
+
+    # Add additional columns to the DataFrame
+    df['MONTH'] = month
+    df['YEAR'] = str(year)
+    df['FUND NAME'] = 'TATA'
+
     return df
 
 @st.cache_data()
@@ -184,7 +349,7 @@ nps_fund_names = {'SBI':get_data_from_excel_SBI,
                     'AB':get_data_from_excel_AB,
                     'UTI':get_data_from_excel_UTI,
                     'LIC':get_data_from_excel_LIC,
-                    'MAX':get_data_from_excel_Max,
+                    'MAX':get_data_from_excel_MAX,
                     'TATA':get_data_from_excel_TATA}
 months = {'JAN' : 1, 'FEB' : 2, 'MAR' : 3, 'APR' : 4, 'MAY' : 5, 'JUN' : 6,
          'JUL' : 7, 'AUG' : 8, 'SEP' : 9, 'OCT': 10, 'NOV' : 11, 'DEC' : 12}
@@ -192,16 +357,17 @@ months = {'JAN' : 1, 'FEB' : 2, 'MAR' : 3, 'APR' : 4, 'MAY' : 5, 'JUN' : 6,
 if submit:
     for uploaded_file in uploaded_files:
         file_name = uploaded_file.name
-        fund_manager, month, year = file_name.split('_')
-        year = year.split('.')[0]
-        month = months[month.upper()]
+        with st.spinner(f'Processing {file_name}'):
+            fund_manager, month, year = file_name.split('_')
+            year = year.split('.')[0]
+            month = months[month.upper()]
 
-        uploaded_data = nps_fund_names[fund_manager](uploaded_file,month,year)
-        if isinstance(nps_trust_scheme_cg_df, pd.DataFrame):
-            nps_trust_scheme_cg_df = pd.concat([nps_trust_scheme_cg_df, uploaded_data])
-        else:
-            nps_trust_scheme_cg_df = uploaded_data
-        nps_trust_scheme_cg_df.to_csv('scheme_cg.csv',index = False)
+            uploaded_data = nps_fund_names[fund_manager.upper()](uploaded_file,month,year)
+            if isinstance(nps_trust_scheme_cg_df, pd.DataFrame):
+                nps_trust_scheme_cg_df = pd.concat([nps_trust_scheme_cg_df, uploaded_data])
+            else:
+                nps_trust_scheme_cg_df = uploaded_data
+            nps_trust_scheme_cg_df.to_csv('scheme_cg.csv',index = False)
     st.commands.execution_control.rerun()
 
 if st.sidebar.button('Reset'):
