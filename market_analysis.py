@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 from openpyxl import load_workbook
 import os
-import datetime
 
-def get_data_from_excel_SBI(uploaded_file):
+def get_data_from_excel_SBI(uploaded_file,month,year):
     wb = load_workbook(uploaded_file)
     ws = wb["Scheme CG"]
 
@@ -39,7 +39,7 @@ def get_data_from_excel_Kotak(uploaded_file):
     print('Do Nothing')
     return True
 
-def get_data_from_excel_ICICI(uploaded_file):
+def get_data_from_excel_ICICI(uploaded_file,month,year):
     wb = load_workbook(uploaded_file)
     sheet_name = wb.sheetnames[0]
     ws = wb[sheet_name]
@@ -80,7 +80,7 @@ def get_data_from_excel_HDFC(uploaded_file):
     df = pd.DataFrame({})
     return df
 
-def get_data_from_excel_AB(uploaded_file):
+def get_data_from_excel_AB(uploaded_file,month,year):
     wb = load_workbook(uploaded_file)
     sheet_name = wb.sheetnames[0]
     ws = wb[sheet_name]
@@ -136,6 +136,25 @@ def get_company_name_from_ISIN():
     df = df.applymap(lambda x: x.upper() if isinstance(x, str) else x)
     return df
 
+def highlight_less_than_previous_and_next(s):
+    # create an empty style object
+    style = pd.Series(np.nan, index=s.index.astype(float))
+    # loop over columns in the dataframe
+    for i in range(1, len(s)):
+        if isinstance(s, pd.Series) and s[i] < s[i-1]:
+            # set the style for the cell to red if the value is less than the previous column's value
+            style[i] = 'color: red'
+        elif isinstance(s, pd.Series) and s[i] > s[i-1]:
+            # set the style for the cell to green if the value is greater than the previous column's value
+            style[i] = 'color: green'
+        elif isinstance(s, pd.DataFrame) and s.iloc[:, i].lt(s.iloc[:, i-1]).any():
+            # set the style for the entire column to red if any value in the column is less than the previous column's value
+            style.iloc[:, i] = 'color: red'
+        elif isinstance(s, pd.DataFrame) and s.iloc[:, i].gt(s.iloc[:, i-1]).any():
+            # set the style for the entire column to green if any value in the column is greater than the previous column's value
+            style.iloc[:, i] = 'color: green'
+    return style
+
 if 'filter_shares' not in st.session_state:
     st.session_state['filter_shares'] = 'value'
 
@@ -155,36 +174,40 @@ else:
     nps_trust_scheme_cg_df = None
     st.info('No NPS Scheme CG Data Available')
 
-add_more_data = st.sidebar.checkbox('Add more Data to Analyse')
+nps_upload_form = st.form('Upload NPS Trust Files', clear_on_submit=True)
+uploaded_files = nps_upload_form.file_uploader('Upload your files here',accept_multiple_files=True)
+submit = nps_upload_form.form_submit_button('Submit', use_container_width = True)
+nps_fund_names = {'SBI':get_data_from_excel_SBI,
+                    'KOTAK':get_data_from_excel_Kotak,
+                    'ICICI':get_data_from_excel_ICICI,
+                    'HDFC':get_data_from_excel_HDFC,
+                    'AB':get_data_from_excel_AB,
+                    'UTI':get_data_from_excel_UTI,
+                    'LIC':get_data_from_excel_LIC,
+                    'MAX':get_data_from_excel_Max,
+                    'TATA':get_data_from_excel_TATA}
+months = {'JAN' : 1, 'FEB' : 2, 'MAR' : 3, 'APR' : 4, 'MAY' : 5, 'JUN' : 6,
+         'JUL' : 7, 'AUG' : 8, 'SEP' : 9, 'OCT': 10, 'NOV' : 11, 'DEC' : 12}
 
+if submit:
+    for uploaded_file in uploaded_files:
+        file_name = uploaded_file.name
+        fund_manager, month, year = file_name.split('_')
+        year = year.split('.')[0]
+        month = months[month.upper()]
 
-if add_more_data:
-    uploaded_file = st.file_uploader('Upload your file here')
-    nps_fund_names = {'SBI':get_data_from_excel_SBI,
-                      'Kotak':get_data_from_excel_Kotak,
-                      'ICICI':get_data_from_excel_ICICI,
-                      'HDFC':get_data_from_excel_HDFC,
-                      'Aditya Birla':get_data_from_excel_AB,
-                      'UTI':get_data_from_excel_UTI,
-                      'LIC':get_data_from_excel_LIC,
-                      'Max':get_data_from_excel_Max,
-                      'TATA':get_data_from_excel_TATA}
-    nps_upload_form = st.form('Upload NPS Trust Files', clear_on_submit=True)
-    nps_fund_name = nps_upload_form.selectbox('Select a Fund to Upload', options = nps_fund_names.keys())
-    current_year = datetime.datetime.now().year
-    year = nps_upload_form.selectbox('Year',options = [year for year in range(current_year,current_year -10, -1)])
-    month = nps_upload_form.selectbox('Month',options = [month for month in range (1,13)])
-    pre_check = nps_upload_form.checkbox('Are you Sure?')
-    submit = nps_upload_form.form_submit_button('Submit', disabled=not uploaded_file, use_container_width = True)
-    if pre_check and submit:
-        if nps_fund_name in nps_fund_names:
-            uploaded_data = nps_fund_names[nps_fund_name](uploaded_file)
-            if isinstance(nps_trust_scheme_cg_df, pd.DataFrame):
-                nps_trust_scheme_cg_df = pd.concat([nps_trust_scheme_cg_df, uploaded_data])
-            else:
-                nps_trust_scheme_cg_df = uploaded_data
-            nps_trust_scheme_cg_df.to_csv('scheme_cg.csv',index = False)
-    
+        uploaded_data = nps_fund_names[fund_manager](uploaded_file,month,year)
+        if isinstance(nps_trust_scheme_cg_df, pd.DataFrame):
+            nps_trust_scheme_cg_df = pd.concat([nps_trust_scheme_cg_df, uploaded_data])
+        else:
+            nps_trust_scheme_cg_df = uploaded_data
+        nps_trust_scheme_cg_df.to_csv('scheme_cg.csv',index = False)
+    st.commands.execution_control.rerun()
+
+if st.sidebar.button('Reset'):
+    if os.path.exists("scheme_cg.csv"):
+        os.remove("scheme_cg.csv")
+    st.commands.execution_control.rerun()
 group_by_cols = st.sidebar.multiselect('Select Group by Columns', options = ['YEAR', 'MONTH'], default=['YEAR','MONTH']  )
 selected_value = st.sidebar.selectbox('Select a Value',options = ['QUANTITY','MARKET VALUE','% OF PORTFOLIO'])
 if isinstance(nps_trust_scheme_cg_df, pd.DataFrame):
@@ -193,5 +216,8 @@ if isinstance(nps_trust_scheme_cg_df, pd.DataFrame):
         st.session_state['filter_shares'] = company_name
         nps_trust_scheme_cg_df = nps_trust_scheme_cg_df.query('`COMPANY NAME` == @company_name')
         st.dataframe(nps_trust_scheme_cg_df,use_container_width = True)
-    nps_trust_scheme_cg_df = nps_trust_scheme_cg_df.pivot_table(values=selected_value, index='COMPANY NAME', columns=group_by_cols, aggfunc='sum')
-    st.dataframe(nps_trust_scheme_cg_df,use_container_width = True)
+    
+    
+    nps_pivot = nps_trust_scheme_cg_df.pivot_table(values=selected_value, index='COMPANY NAME', columns=group_by_cols, aggfunc='sum')
+    #nps_pivot = nps_pivot.style.applymap(highlight_less_than_previous_and_next)
+    st.dataframe(nps_pivot,use_container_width = True)
