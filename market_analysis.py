@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 from openpyxl import load_workbook
 import os
+import calendar
+from datetime import datetime, timedelta
 
 def get_data_from_excel_SBI(uploaded_file,month,year):
     wb = load_workbook(uploaded_file)
@@ -301,7 +303,38 @@ def get_company_name_from_ISIN():
     df = df.applymap(lambda x: x.upper() if isinstance(x, str) else x)
     return df
 
-def highlight_less_than_previous_and_next(s):
+@st.cache_data()
+def transform_nps_trust_df(nps_trust_scheme_cg_df,selected_value):
+    nps_trust_scheme_cg_df['YEAR-MONTH'] = nps_trust_scheme_cg_df.apply(lambda x: f"{x['YEAR']}-{x['MONTH']:02d}", axis=1)
+    nps_pivot = nps_trust_scheme_cg_df.pivot_table(values=selected_value, index='COMPANY NAME', columns=['YEAR','MONTH'],
+                                                    aggfunc='sum',fill_value=0)
+    nps_pivot.columns = [f"{calendar.month_abbr[m].upper()}-{y}" for y, m in nps_pivot.columns]
+
+    return nps_pivot
+
+@st.cache_data()
+def apply_months_filter(nps_trust_scheme_cg_df,slider_value):
+    if slider_value == 0:
+        return nps_trust_scheme_cg_df
+    else:
+        filter_date = datetime.now() - timedelta(days=slider_value*30)
+        nps_trust_scheme_cg_df['date'] = pd.to_datetime(nps_trust_scheme_cg_df['MONTH'].astype(str) + nps_trust_scheme_cg_df['YEAR'].astype(str), format='%m%Y')
+        filtered_data = nps_trust_scheme_cg_df[nps_trust_scheme_cg_df['date'] >= filter_date]
+        return filtered_data
+
+def nps_color(df):
+    conds = [
+        df.gt(df.shift(+1, axis=1)), #is the current column greater than the previous ?
+        df.lt(df.shift(+1, axis=1)), #is the current column lower than the previous ?
+    ]
+    vals = [
+        "background-color: lightgreen",
+        "background-color: lightcoral",
+    ]
+    return pd.DataFrame(np.select(conds, vals, default=""),
+                        index=df.index, columns=df.columns)
+
+
     # create an empty style object
     style = pd.Series(np.nan, index=s.index.astype(float))
     # loop over columns in the dataframe
@@ -327,8 +360,6 @@ if 'filter_shares' not in st.session_state:
 st.set_page_config(page_title = 'Market Analysis',  
                     page_icon = ":bar_chart:",
                     layout = 'wide')
-
-
 st.header('Market Analysis')
 st.subheader('NPS Trust Portfolio')
 
@@ -374,16 +405,19 @@ if st.sidebar.button('Reset'):
     if os.path.exists("scheme_cg.csv"):
         os.remove("scheme_cg.csv")
     st.commands.execution_control.rerun()
-group_by_cols = st.sidebar.multiselect('Select Group by Columns', options = ['YEAR', 'MONTH'], default=['YEAR','MONTH']  )
-selected_value = st.sidebar.selectbox('Select a Value',options = ['QUANTITY','MARKET VALUE','% OF PORTFOLIO'])
+#group_by_cols = st.sidebar.multiselect('Select Group by Columns', options = ['YEAR', 'MONTH'], default=['YEAR','MONTH']  )
+
 if isinstance(nps_trust_scheme_cg_df, pd.DataFrame):
+    selected_value = st.sidebar.selectbox('Select a Value',options = ['QUANTITY','MARKET VALUE','% OF PORTFOLIO'])
     company_name = st.sidebar.multiselect('Filter Shares',options = nps_trust_scheme_cg_df['COMPANY NAME'].unique(),default=None)
+    slider_value = st.sidebar.slider("Select time period", 0, 36, 0, 3, format="%d months", key="slider")
+    
+    nps_trust_scheme_cg_df = apply_months_filter(nps_trust_scheme_cg_df,slider_value)
     if company_name:
         st.session_state['filter_shares'] = company_name
         nps_trust_scheme_cg_df = nps_trust_scheme_cg_df.query('`COMPANY NAME` == @company_name')
         st.dataframe(nps_trust_scheme_cg_df,use_container_width = True)
-    
-    
-    nps_pivot = nps_trust_scheme_cg_df.pivot_table(values=selected_value, index='COMPANY NAME', columns=group_by_cols, aggfunc='sum')
-    #nps_pivot = nps_pivot.style.applymap(highlight_less_than_previous_and_next)
-    st.dataframe(nps_pivot,use_container_width = True)
+
+    nps_pivot = transform_nps_trust_df(nps_trust_scheme_cg_df,selected_value)
+    st.dataframe(nps_pivot.style.apply(nps_color, axis=None),use_container_width = True)
+
